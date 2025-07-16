@@ -3,6 +3,8 @@ from flask import Flask, render_template, request, Response, jsonify
 from dotenv import load_dotenv
 import requests
 import json
+from flask import make_response
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -145,6 +147,16 @@ def image_generate():
     except Exception as e:
         app.logger.error(f"An unexpected error occurred during image generation: {e}")
         return jsonify({"error": "An unexpected error occurred."}), 500
+    
+    # Handle 405 Method Not Allowed with JSON instead of HTML
+@app.errorhandler(405)
+def method_not_allowed(e):
+    return make_response(jsonify({"error": "Method Not Allowed", "message": str(e)}), 405)
+
+# Optional: Add a generic handler for unexpected paths (useful during debugging)
+@app.errorhandler(404)
+def not_found(e):
+    return make_response(jsonify({"error": "Not Found", "message": str(e)}), 404)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
