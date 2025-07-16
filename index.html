@@ -141,7 +141,6 @@
             overflow-y: auto; /* Enables scrolling for many conversations */
         }
 
-        /* Styling for individual conversation list items */
         #conversation-list li {
             padding: 12px;
             border-radius: 8px;
@@ -1362,6 +1361,7 @@
                 <select id="model-select">
                     <!-- Only one option now, renamed to "Z-Chat Demo" -->
                     <option value="anthropic/claude-3-haiku">Z-Chat Demo</option>
+                    <!-- Removed the GPT-4o option from here, as per user's request to rely only on Claude 3 Haiku -->
                 </select>
             </div>
             <div class="settings-field">
@@ -1453,14 +1453,10 @@
             };
 
             // --- API & Model Configuration ---
-            // Using `let` for variables that will be reassigned.
-            // User-provided API key for OpenRouter
-            const API_KEY = "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";
-            const TEXT_AI_URL = "https://openrouter.ai/api/v1/chat/completions";
-            // Image generation still uses Google's Imagen API, which is handled differently by Canvas.
-            // The `key=${API_KEY}` part will be automatically filled by Canvas when API_KEY is empty.
-            // For OpenRouter, the API_KEY is used in the Authorization header.
-            const IMAGE_AI_URL = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=`; 
+            // These URLs now point to your Flask backend endpoints
+            const BACKEND_API_URL = "/api/chat"; // Endpoint for text generation
+            const BACKEND_IMAGE_API_URL = "/api/image-generate"; // Endpoint for image generation
+            
             // Set default model to Claude 3 Haiku for "Z-Chat Demo"
             let MODEL = localStorage.getItem('z_chat_model') || "anthropic/claude-3-haiku"; 
             allDOMElements.modelSelect.value = MODEL;
@@ -1489,7 +1485,6 @@
             ];
 
             // Constant for maximum input characters to prevent token limit errors
-            // Reduced to a more conservative value for free tiers on OpenRouter
             const MAX_TOTAL_INPUT_CHARS = 800; // Further reduced for safer token limits
 
             /**
@@ -1607,8 +1602,7 @@
                         { type: "text", text: messageText },
                         { type: "image_url", image_url: { url: attachedImage } }
                     ];
-                    MODEL = "openai/gpt-4o"; // Force vision model for image input
-                    allDOMElements.modelSelect.value = MODEL;
+                    // Removed: MODEL = "openai/gpt-4o"; // Let backend handle model switching for vision
                 }
                 
                 // Update conversation history and save
@@ -1636,11 +1630,6 @@
                             allAiMessages[allAiMessages.length - 1].remove();
                         }
                     }
-                }
-
-                if (!API_KEY) {
-                    createMessageElement('ai', 'خطأ: مفتاح API غير موجود. يرجى إدخال مفتاح OpenRouter API في الإعدادات.', true);
-                    return;
                 }
 
                 setLoadingState(true); // Show loading indicators
@@ -1703,10 +1692,9 @@
                         showToast('تم تقصير سجل المحادثة لإرساله إلى الذكاء الاصطناعي لتجنب تجاوز الحد الأقصى للرموز.');
                     }
 
-                    const response = await fetch(TEXT_AI_URL, { 
+                    const response = await fetch(BACKEND_API_URL, { 
                         method: 'POST',
                         headers: { 
-                            'Authorization': `Bearer ${API_KEY}`, // Use API key in Authorization header for OpenRouter
                             'Content-Type': 'application/json' 
                         },
                         body: JSON.stringify({ 
@@ -1719,8 +1707,16 @@
                     });
 
                     if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error?.message || `HTTP error! Status: ${response.status}`);
+                        const errorText = await response.text(); // Get raw error text
+                        let errorMessage = `HTTP error! Status: ${response.status}`;
+                        try {
+                            const errorData = JSON.parse(errorText);
+                            errorMessage = errorData.error?.message || errorData.detail || errorMessage;
+                        } catch (e) {
+                            // If not JSON, use the raw text
+                            errorMessage = errorText || errorMessage;
+                        }
+                        throw new Error(errorMessage);
                     }
 
                     const reader = response.body.getReader();
@@ -1731,10 +1727,16 @@
                         if (done) break; // End of stream
 
                         const chunk = decoder.decode(value);
+                        // --- START OF CRITICAL FIX ---
+                        // Revert to correctly filter and parse SSE data with 'data: ' prefix
                         const lines = chunk.split('\n').filter(line => line.trim().startsWith('data:'));
+                        // --- END OF CRITICAL FIX ---
                         
                         for (const line of lines) {
+                            // --- START OF CRITICAL FIX ---
+                            // Revert to correctly extract data after 'data: ' prefix
                             const dataStr = line.substring(6); 
+                            // --- END OF CRITICAL FIX ---
                             if (dataStr === '[DONE]') break; 
                             
                             try {
@@ -1758,7 +1760,7 @@
                     addCodeCopyButtons(aiMessageElement); // Add copy buttons to new code blocks
 
                     // Save the complete AI response to history
-                    conversations[currentConversationId].history.push({ role: "assistant", content: fullResponse });
+                    conversations[currentConversationId].history.push({ role: "assistant", content: fullResponse, id: aiMessageId });
                     
                     // Auto-generate title for new chats after first AI response
                     if (conversations[currentConversationId].history.length === 3) { // System, User, AI
@@ -1790,10 +1792,9 @@
                 const titlePrompt = `بناءً على الرد التالي، اقترح عنواناً قصيراً جداً (3-5 كلمات) باللغة العربية لهذه المحادثة. أجب بالعنوان فقط بدون أي مقدمات:\n\n"${aiResponse.substring(0, 150)}..."`;
                 
                 try {
-                    const response = await fetch(TEXT_AI_URL, { 
+                    const response = await fetch(BACKEND_API_URL, { 
                         method: 'POST',
                         headers: { 
-                            'Authorization': `Bearer ${API_KEY}`, 
                             'Content-Type': 'application/json' 
                         },
                         body: JSON.stringify({
@@ -2673,7 +2674,7 @@
 
                     if (totalInputChars > MAX_TOTAL_INPUT_CHARS) {
                         const systemPromptChars = getContentLength(messagesToSend[0].content);
-                        const userPromptChars = getContentLength(messages[2].content);
+                        const userPromptChars = getContentLength(messagesToSend[2].content);
                         const availableCharsForBlockContent = MAX_TOTAL_INPUT_CHARS - systemPromptChars - userPromptChars - 100; // Buffer for roles, etc.
 
                         if (availableCharsForBlockContent > 0) {
@@ -2686,10 +2687,9 @@
                         }
                     }
 
-                    const response = await fetch(TEXT_AI_URL, {
+                    const response = await fetch(BACKEND_API_URL, {
                         method: 'POST',
                         headers: { 
-                            'Authorization': `Bearer ${API_KEY}`, // Use API key in Authorization header
                             'Content-Type': 'application/json' 
                         },
                         body: JSON.stringify({ 
@@ -2701,8 +2701,15 @@
                     });
 
                     if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error?.message || `HTTP error! Status: ${response.status}`);
+                        const errorText = await response.text();
+                        let errorMessage = `HTTP error! Status: ${response.status}`;
+                        try {
+                            const errorData = JSON.parse(errorText);
+                            errorMessage = errorData.error?.message || errorData.detail || errorMessage;
+                        } catch (e) {
+                            errorMessage = errorText || errorMessage;
+                        }
+                        throw new Error(errorMessage);
                     }
 
                     const data = await response.json();
@@ -2748,7 +2755,7 @@
 
                 try {
                     const payload = { instances: { prompt: promptText }, parameters: { "sampleCount": 1} };
-                    const response = await fetch(IMAGE_AI_URL, {
+                    const response = await fetch(BACKEND_IMAGE_API_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
@@ -2824,10 +2831,9 @@
                         }
                     }
 
-                    const response = await fetch(TEXT_AI_URL, {
+                    const response = await fetch(BACKEND_API_URL, {
                         method: 'POST',
                         headers: { 
-                            'Authorization': `Bearer ${API_KEY}`, // Use API key in Authorization header
                             'Content-Type': 'application/json' 
                         },
                         body: JSON.stringify({ 
@@ -2840,8 +2846,15 @@
                     });
 
                     if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
+                        const errorText = await response.text();
+                        let errorMessage = `HTTP error! status: ${response.status}`;
+                        try {
+                            const errorData = JSON.parse(errorText);
+                            errorMessage = errorData.error?.message || errorData.detail || errorMessage;
+                        } catch (e) {
+                            errorMessage = errorText || errorMessage;
+                        }
+                        throw new Error(errorMessage);
                     }
 
                     const data = await response.json();
@@ -3075,10 +3088,10 @@
                             showToast('فشل تعديل الرسالة.');
                         }
                     } else {
-                         // If text is same or empty, just revert
-                         contentDiv.innerHTML = marked.parse(originalText);
-                         contentDiv.dataset.rawText = originalText;
-                         showToast('لم يتم إجراء أي تغييرات.');
+                           // If text is same or empty, just revert
+                           contentDiv.innerHTML = marked.parse(originalText);
+                           contentDiv.dataset.rawText = originalText;
+                           showToast('لم يتم إجراء أي تغييرات.');
                     }
                     contentDiv.setAttribute('contenteditable', 'false');
                     restoreOriginalActions(actionsWrapper, messageElement.id); // Pass messageId to restore actions
@@ -3330,7 +3343,7 @@
 
             /**
              * Clears the attached image and its preview.
-             * Made global so it can be called from inline onclick.
+             * Made global so it so it can be called from inline onclick.
              */
             window.clearImagePreview = () => {
                 attachedImage = null;
