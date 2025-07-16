@@ -1396,93 +1396,99 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- DOM Elements ---
-            // Grouping all DOM element queries for better organization and potential performance.
-            // Using `const` for elements that don't change.
-            const allDOMElements = {
-                appLayout: document.getElementById('app-layout'),
-                sidebar: document.getElementById('sidebar'),
-                sidebarToggle: document.getElementById('sidebar-toggle'),
-                mobileOverlay: document.getElementById('mobile-overlay'),
-                conversationList: document.getElementById('conversation-list'),
-                newChatBtnSidebar: document.getElementById('new-chat-btn-sidebar'),
-                chatContainer: document.getElementById('chat-container'),
-                chatMessages: document.getElementById('chat-messages'),
-                chatForm: document.getElementById('chat-form'),
-                promptInput: document.getElementById('prompt-input'),
-                sendButton: document.getElementById('send-button'),
-                suggestionsContainer: document.getElementById('suggestions-container'),
-                themeToggleBtn: document.getElementById('theme-toggle-btn'),
-                stopGeneratingBtn: document.getElementById('stop-generating-btn'),
-                downloadChatBtn: document.getElementById('download-chat-btn'),
-                settingsBtn: document.getElementById('settings-btn'),
-                settingsModal: document.getElementById('settings-modal'),
-                saveSettingsBtn: document.getElementById('save-settings-btn'),
-                modelSelect: document.getElementById('model-select'),
-                systemPromptTextarea: document.getElementById('system-prompt-textarea'),
-                attachmentBtn: document.getElementById('attachment-btn'),
-                imageUploadInput: document.getElementById('image-upload-input'),
-                imagePreviewContainer: document.getElementById('image-preview-container'),
-                toast: document.getElementById('toast-notification'),
-                dragDropOverlay: document.getElementById('drag-drop-overlay'),
-                confirmModal: document.getElementById('confirm-modal'),
-                confirmTitle: document.getElementById('confirm-title'),
-                confirmMessage: document.getElementById('confirm-message'),
-                confirmOkBtn: document.getElementById('confirm-ok-btn'),
-                confirmCancelBtn: document.getElementById('confirm-cancel-btn'),
-                contextMenu: document.getElementById('context-menu'),
-                renameConvBtn: document.getElementById('rename-conv-btn'),
-                deleteConvBtn: document.getElementById('delete-conv-btn'),
-                pinnedMemoriesList: document.getElementById('pinned-memories-list'),
+      document.addEventListener('DOMContentLoaded', () => {
+    // --- DOM Elements ---
+    const allDOMElements = {
+        appLayout: document.getElementById('app-layout'),
+        sidebar: document.getElementById('sidebar'),
+        sidebarToggle: document.getElementById('sidebar-toggle'),
+        mobileOverlay: document.getElementById('mobile-overlay'),
+        conversationList: document.getElementById('conversation-list'),
+        newChatBtnSidebar: document.getElementById('new-chat-btn-sidebar'),
+        chatContainer: document.getElementById('chat-container'),
+        chatMessages: document.getElementById('chat-messages'),
+        chatForm: document.getElementById('chat-form'),
+        promptInput: document.getElementById('prompt-input'),
+        sendButton: document.getElementById('send-button'),
+        suggestionsContainer: document.getElementById('suggestions-container'),
+        themeToggleBtn: document.getElementById('theme-toggle-btn'),
+        stopGeneratingBtn: document.getElementById('stop-generating-btn'),
+        downloadChatBtn: document.getElementById('download-chat-btn'),
+        settingsBtn: document.getElementById('settings-btn'),
+        settingsModal: document.getElementById('settings-modal'),
+        saveSettingsBtn: document.getElementById('save-settings-btn'),
+        modelSelect: document.getElementById('model-select'),
+        systemPromptTextarea: document.getElementById('system-prompt-textarea'),
+        attachmentBtn: document.getElementById('attachment-btn'),
+        imageUploadInput: document.getElementById('image-upload-input'),
+        imagePreviewContainer: document.getElementById('image-preview-container'),
+        toast: document.getElementById('toast-notification'),
+        dragDropOverlay: document.getElementById('drag-drop-overlay'),
+        confirmModal: document.getElementById('confirm-modal'),
+        confirmTitle: document.getElementById('confirm-title'),
+        confirmMessage: document.getElementById('confirm-message'),
+        confirmOkBtn: document.getElementById('confirm-ok-btn'),
+        confirmCancelBtn: document.getElementById('confirm-cancel-btn'),
+        contextMenu: document.getElementById('context-menu'),
+        renameConvBtn: document.getElementById('rename-conv-btn'),
+        deleteConvBtn: document.getElementById('delete-conv-btn'),
+        pinnedMemoriesList: document.getElementById('pinned-memories-list'),
 
-                // New Canvas Elements
-                newCanvasBtnSidebar: document.getElementById('new-canvas-btn-sidebar'),
-                canvasDocumentList: document.getElementById('canvas-document-list'),
-                canvasContainer: document.getElementById('canvas-container'),
-                canvasEditor: document.getElementById('canvas-editor'),
-                canvasToolbar: document.querySelector('.canvas-toolbar'),
-                addTextBlockBtn: document.getElementById('add-text-block-btn'),
-                addCodeBlockBtn: document.getElementById('add-code-block-btn'),
-                addImageBlockBtn: document.getElementById('add-image-block-btn'),
-                askAiCanvasBtn: document.getElementById('ask-ai-canvas-btn'),
-                toggleViewBtn: document.getElementById('toggle-view-btn'),
-                canvasTitleDisplay: document.getElementById('canvas-title-display'),
-                renameCanvasBtn: document.getElementById('rename-canvas-btn'),
-                deleteCanvasBtn: document.getElementById('delete-canvas-btn')
-            };
+        // New Canvas Elements
+        newCanvasBtnSidebar: document.getElementById('new-canvas-btn-sidebar'),
+        canvasDocumentList: document.getElementById('canvas-document-list'),
+        canvasContainer: document.getElementById('canvas-container'),
+        canvasEditor: document.getElementById('canvas-editor'),
+        canvasToolbar: document.querySelector('.canvas-toolbar'),
+        addTextBlockBtn: document.getElementById('add-text-block-btn'),
+        addCodeBlockBtn: document.getElementById('add-code-block-btn'),
+        addImageBlockBtn: document.getElementById('add-image-block-btn'),
+        askAiCanvasBtn: document.getElementById('ask-ai-canvas-btn'),
+        toggleViewBtn: document.getElementById('toggle-view-btn'),
+        canvasTitleDisplay: document.getElementById('canvas-title-display'),
+        renameCanvasBtn: document.getElementById('rename-canvas-btn'),
+        deleteCanvasBtn: document.getElementById('delete-canvas-btn')
+    };
 
-            // --- API & Model Configuration ---
-            // These URLs now point to your Flask backend endpoints
-            const BACKEND_API_URL = "/api/chat"; // Endpoint for text generation
-            const BACKEND_IMAGE_API_URL = "/api/image-generate"; // Endpoint for image generation
-            
-            // Set default model to Claude 3 Haiku for "Z-Chat Demo"
-            let MODEL = localStorage.getItem('z_chat_model') || "anthropic/claude-3-haiku"; 
-            allDOMElements.modelSelect.value = MODEL;
+    // ✅ منع الإرسال التلقائي للنموذج ومعالجة الطلب
+    allDOMElements.chatForm.addEventListener('submit', (event) => {
+        event.preventDefault(); // يمنع السلوك الافتراضي
 
-            // --- State Variables ---
-            let conversations = {};
-            let currentConversationId = null;
-            let abortController = new AbortController(); // Manages API request cancellation
-            let attachedImage = null; // Stores the base64 URL of the attached image
-            let initialSystemPrompt = localStorage.getItem('z_chat_system_prompt') || `أنت مساعد ذكاء اصطناعي اسمك "Z Chat". مهمتك هي الرد على المستخدمين بلغة عربية فصيحة وطبيعية. يجب أن تكون جميع ردودك باللغة العربية فقط. كن ودودًا ومساعدًا ومبدعًا وأجب على السؤال مباشرة وبشكل واضح. لا تذكر أبدًا أنك ذكاء اصطناعي.`;
-            allDOMElements.systemPromptTextarea.value = initialSystemPrompt;
-            let contextMenuTargetId = null; // Stores the ID of the conversation clicked on for context menu
+        const messageText = allDOMElements.promptInput.value.trim();
+        if (messageText.length === 0) return;
 
-            // State for Pinned Memories
-            let pinnedMemories = JSON.parse(localStorage.getItem('z_chat_pinned_memories') || '[]');
+        // 👇 إرسال الرسالة باستخدام الوظيفة الخاصة بك
+        submitMessage(messageText);
+    });
 
-            // New State for Canvas Documents
-            let canvasDocuments = {};
-            let currentCanvasId = null;
-            let activeView = 'chat'; // 'chat' or 'canvas'
-            let focusedCanvasBlockId = null; // Tracks the currently focused canvas block for AI interaction
+    // --- API & Model Configuration ---
+    const BACKEND_API_URL = "/api/chat";
+    const BACKEND_IMAGE_API_URL = "/api/image-generate";
 
-            // Supported code languages for syntax highlighting
-            const supportedCodeLanguages = [
-                "javascript", "python", "html", "css", "java", "csharp", "php", "ruby", "typescript", "json", "xml", "markdown"
-            ];
+    let MODEL = localStorage.getItem('z_chat_model') || "anthropic/claude-3-haiku"; 
+    allDOMElements.modelSelect.value = MODEL;
+
+    // --- State Variables ---
+    let conversations = {};
+    let currentConversationId = null;
+    let abortController = new AbortController();
+    let attachedImage = null;
+    let initialSystemPrompt = localStorage.getItem('z_chat_system_prompt') || `أنت مساعد ذكاء اصطناعي اسمك "Z Chat". مهمتك هي الرد على المستخدمين بلغة عربية فصيحة وطبيعية. يجب أن تكون جميع ردودك باللغة العربية فقط. كن ودودًا ومساعدًا ومبدعًا وأجب على السؤال مباشرة وبشكل واضح. لا تذكر أبدًا أنك ذكاء اصطناعي.`;
+    allDOMElements.systemPromptTextarea.value = initialSystemPrompt;
+    let contextMenuTargetId = null;
+
+    let pinnedMemories = JSON.parse(localStorage.getItem('z_chat_pinned_memories') || '[]');
+
+    let canvasDocuments = {};
+    let currentCanvasId = null;
+    let activeView = 'chat';
+    let focusedCanvasBlockId = null;
+
+    const supportedCodeLanguages = [
+        "javascript", "python", "html", "css", "java", "csharp", "php", "ruby", "typescript", "json", "xml", "markdown"
+    ];
+
+
 
             // Constant for maximum input characters to prevent token limit errors
             const MAX_TOTAL_INPUT_CHARS = 800; // Further reduced for safer token limits
@@ -3365,5 +3371,22 @@
             loadAllData();
         });
     </script>
+    <script>
+  fetch("/api/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "anthropic/claude-3-haiku",
+      messages: [{ role: "user", content: "Hello from browser!" }],
+      stream: false
+    })
+  })
+  .then(res => res.json())
+  .then(data => console.log("✅ Response:", data))
+  .catch(err => console.error("❌ Error:", err));
+</script>
+
 </body>
 </html>
