@@ -4,12 +4,16 @@ from dotenv import load_dotenv
 import requests
 import json
 from flask import make_response
+from flask_cors import CORS
 
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
+CORS(app, supports_credentials=True)
+
 
 # Retrieve API keys from environment variables
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -157,6 +161,24 @@ def method_not_allowed(e):
 @app.errorhandler(404)
 def not_found(e):
     return make_response(jsonify({"error": "Not Found", "message": str(e)}), 404)
+
+@app.route("/api/chat", methods=["OPTIONS"])
+def chat_options():
+    response = jsonify({"message": "CORS Preflight OK"})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+    response.headers.add("Access-Control-Allow-Methods", "POST")
+    return response
+
+
+@app.route("/api/image-generate", methods=["OPTIONS"])
+def image_options():
+    response = jsonify({"message": "CORS Preflight OK"})
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+    response.headers.add("Access-Control-Allow-Methods", "POST")
+    return response
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
