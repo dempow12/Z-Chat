@@ -1,0 +1,30 @@
+# Environment variables
+.env
+
+# Python specific files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.Python
+Python.h
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+.envrc
+
+# IDE specific files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# macOS specific files
+.DS_Store
+
+# Windows specific files
+Thumbs.db
