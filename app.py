@@ -16,8 +16,6 @@ GOOGLE_CLOUD_API_KEY = os.getenv("GOOGLE_CLOUD_API_KEY")
 # Check if API keys are set
 if not OPENROUTER_API_KEY:
     print("Error: OPENROUTER_API_KEY is not set in the .env file.")
-    # In a production app, you might want to raise an exception or handle this more gracefully
-    # For now, we'll just exit to prevent errors.
     exit(1)
 if not GOOGLE_CLOUD_API_KEY:
     print("Warning: GOOGLE_CLOUD_API_KEY is not set in the .env file.")
@@ -146,7 +144,7 @@ def image_generate():
         return jsonify({"error": "Invalid JSON response from image service."}), 500
     except Exception as e:
         app.logger.error(f"An unexpected error occurred during image generation: {e}")
-        return jsonify({"error": "An unexpected error occurred during image generation."}), 500
+        return jsonify({"error": "An unexpected error occurred."}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
